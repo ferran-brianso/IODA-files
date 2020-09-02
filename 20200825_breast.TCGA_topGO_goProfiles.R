@@ -38,7 +38,7 @@ gene.data[1:10,1:5]
 ## Per afegir info biològica als gene symbols no hi ha problema, 
 ## ja que podem utilitzar la funció annFUN.org del paquet topGO,
 ## per anotar els symbols a GO, i quedar-nos llavors aquelles GO:BP que 
-## estiguin anotades a 10 o més dels gens/prots de les nostres llistes.
+## estiguin anotades a 10,15... o més dels gens/prots de les nostres llistes.
 
 library(topGO)
 
@@ -52,6 +52,12 @@ prot.ann.over10 <- prot.ann[which(lengths(prot.ann)>=10)]
 prot.ann.over10
 length(prot.ann.over10)
 
+## FINALMENT, APLICO EL CRITERI DE QUEDAR-ME CATEGORIES ON LA SUMA D'ANNOTACIONS >= A 15 (sumant gens i prots)
+join.ann <- annFUN.org("BP", feasibleGenes = c(colnames(gene.data), colnames(prot.data)), mapping = "org.Hs.eg.db", ID = "symbol")
+join.ann.over15 <- join.ann[which(lengths(join.ann)>=15)]
+#join.ann.over10 <- c(gene.ann.over10, prot.ann.over10)
+#length(join.ann.over10)
+#length(unique(names(join.ann.over10)))
 
 ## Procedim ara a crear les matrius amb les annotacions binàries
 
@@ -67,18 +73,18 @@ num.genes <- length(rownames(gene.matrix))
 num.genes
 num.samples <- length(colnames(gene.matrix))
 num.samples
-num.gene.categs <- length(gene.ann.over10)
+num.gene.categs <- length(join.ann.over15) ## fem servir aqui les categs unides de gens i prots!
 
 ## inicialitzo la matriu d'anotacions
 gene.categ.matrix <- matrix(0, nrow = num.genes, ncol = num.gene.categs)
 dim(gene.categ.matrix)
 rownames(gene.categ.matrix) <- rownames(gene.matrix)
-colnames(gene.categ.matrix) <- names(gene.ann.over10)
+colnames(gene.categ.matrix) <- names(join.ann.over15)  ## fem servir aqui les categs unides de gens i prots!
 gene.categ.matrix[1:15,]
 
 ## omplo les dades de la matriu d'anotacions
 for (j in 1:num.gene.categs){
-  gene.categ.matrix[which(rownames(gene.categ.matrix) %in% gene.ann.over10[[j]]), j] <- 1
+  gene.categ.matrix[which(rownames(gene.categ.matrix) %in% join.ann.over15[[j]]), j] <- 1
 }
 
 ## verifico com s'ha quedat la matriu d'anotacions
@@ -103,18 +109,18 @@ num.prots <- length(rownames(prot.matrix))
 num.prots
 num.samples <- length(colnames(prot.matrix))
 num.samples
-num.prot.categs <- length(prot.ann.over10)
+num.prot.categs <- length(join.ann.over15)  ## fem servir aqui les categs unides de gens i prots!
 
 ## inicialitzo la matriu d'anotacions
 prot.categ.matrix <- matrix(0, nrow = num.prots, ncol = num.prot.categs)
 dim(prot.categ.matrix)
 rownames(prot.categ.matrix) <- rownames(prot.matrix)
-colnames(prot.categ.matrix) <- names(prot.ann.over10)
+colnames(prot.categ.matrix) <- names(join.ann.over15) ## fem servir aqui les categs unides de gens i prots!
 prot.categ.matrix[1:15, 1:8]
 
 ## omplo les dades de la matriu d'anotacions
 for (j in 1:num.prot.categs){
-  prot.categ.matrix[which(rownames(prot.categ.matrix) %in% prot.ann.over10[[j]]), j] <- 1
+  prot.categ.matrix[which(rownames(prot.categ.matrix) %in% join.ann.over15[[j]]), j] <- 1
 }
 
 ## verifico com s'ha quedat la matriu d'anotacions
@@ -126,7 +132,26 @@ prot.ann.matrix <- cbind(prot.matrix, prot.categ.matrix)
 head(prot.ann.matrix)
 dim(prot.ann.matrix)
 
+### Ara si que tenim el mateix nombre de columnes als dos data sets, corresponents a les 150 mostres
+### + 30 categories de GO:BP per les que tenim anotacions abundants de gens i/o prots.
+colSums(gene.categ.matrix)
+colSums(prot.categ.matrix)
 
-## Un cop aquí, veiem que el nombre de columnes (on van les mostres i les categories de GO:BP) 
-## NO son comuns entre els dos data sets. Per això, hem d'unificar primer les categs i dps fer les 
-## matrius!!!!
+
+### Per fer la comparativa d'anotacions directament amb goProfiles, 
+### necessitem reassignar els gene symbols a Entrez IDs, eliminant NAs retornats 
+gene.Entrez <- as.character(mapIds(org.Hs.eg.db, rownames(gene.matrix), 'ENTREZID', 'SYMBOL'))
+gene.Entrez <- gene.Entrez[which(!is.na(gene.Entrez))]
+prot.Entrez <- as.character(mapIds(org.Hs.eg.db, rownames(prot.matrix), 'ENTREZID', 'SYMBOL'))
+prot.Entrez <- prot.Entrez[which(!is.na(prot.Entrez))]
+
+### Procedim a fer la comparació de les categories anotades via data set de gens 
+### amb les anotades via data set de prots, amb el goProfiles
+library(goProfiles)
+gene.BP <- basicProfile(gene.Entrez, onto ="BP", level = 2, orgPackage="org.Hs.eg.db")
+prot.BP <- basicProfile(prot.Entrez, onto ="BP", level = 2, orgPackage="org.Hs.eg.db")
+
+printProfiles(gene.prot.BP, percentage = TRUE)
+plotProfiles (gene.prot.BP, aTitle="Comparison Genes vs Prots (both as Entrez IDs")
+plotProfiles (gene.prot.BP, percentage=T, aTitle="Genes vs Prots", legend=T) 
+
