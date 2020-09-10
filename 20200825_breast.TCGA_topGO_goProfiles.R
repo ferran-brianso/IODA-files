@@ -34,6 +34,8 @@ colnames(prot.data) <- prot2gene$V2
 prot.data[1:10,1:5]
 gene.data[1:10,1:5]
 
+save(gene.data, prot.data, file = "raw.data.Rda")
+#load("raw.data.Rda", verbose = T)
 
 ## Per afegir info biològica als gene symbols no hi ha problema, 
 ## ja que podem utilitzar la funció annFUN.org del paquet topGO,
@@ -97,6 +99,7 @@ head(gene.ann.matrix)
 dim(gene.ann.matrix)
 
 
+####################################################
 ## Repeteixo el procés per a les dades de proteïnes
 prot.matrix <- t(prot.data)
 
@@ -137,6 +140,10 @@ dim(prot.ann.matrix)
 colSums(gene.categ.matrix)
 colSums(prot.categ.matrix)
 
+save(gene.ann.matrix, prot.ann.matrix, gene.categ.matrix, prot.categ.matrix, file = "annot.data.Rda")
+#load("annot.data.Rda", verbose = T)
+
+
 
 ### Per fer la comparativa d'anotacions directament amb goProfiles, 
 ### necessitem reassignar els gene symbols a Entrez IDs, eliminant NAs retornats 
@@ -151,7 +158,9 @@ library(goProfiles)
 gene.BP <- basicProfile(gene.Entrez, onto ="BP", level = 2, orgPackage="org.Hs.eg.db")
 prot.BP <- basicProfile(prot.Entrez, onto ="BP", level = 2, orgPackage="org.Hs.eg.db")
 
+gene.prot.BP <- mergeProfilesLists(gene.BP, prot.BP, profNames = c("Genes", "Prots"))
 printProfiles(gene.prot.BP, percentage = TRUE)
 plotProfiles (gene.prot.BP, aTitle="Comparison Genes vs Prots (both as Entrez IDs")
 plotProfiles (gene.prot.BP, percentage=T, aTitle="Genes vs Prots", legend=T) 
+
 
