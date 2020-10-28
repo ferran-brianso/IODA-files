@@ -41,6 +41,8 @@ resultsDir <- file.path(workingDir, "results/mixomics")
 load(file=file.path(dataDir, "raw.data.Rda"), verbose = TRUE)
 GenesSelected <- t(gene.data)
 ProtsSelected <- t(prot.data)
+dim(GenesSelected)
+dim(ProtsSelected)
 
 ## ----checkPreviousData---------------------------------------------------
 # And check that there is none NA value
@@ -113,11 +115,11 @@ grid2 <- seq(0.001, 0.02, length = 20)
 ## ################################################################
 ## ## Depending on how fine your grid is, this may take some time
 ## ################################################################
-cv.score <- tune.rcc(X, Y, grid1=grid1, grid2=grid2)
+#cv.score <- tune.rcc(X, Y, grid1=grid1, grid2=grid2)
 ## ################################################################
 ###################################################################
 ###################################################################
-save(cv.score, file=file.path(resultsDir, "cv.score.Rdata"))
+#save(cv.score, file=file.path(resultsDir, "cv.score.Rdata"))
 ###################################################################
 ###################################################################
 ###################################################################
@@ -133,16 +135,30 @@ save(cv.score, file=file.path(resultsDir, "cv.score.Rdata"))
 ## #CVScore =  0.915
 
 ## ----rCCA----------------------------------------------------------------
+require(mixOmics)
 ## Run rCCA given the optimal parameters:
 if(!(exists("cv.score"))) load(file=file.path(resultsDir, "cv.score.Rdata"))
 lambda1 <- cv.score$opt.lambda1
 lambda2 <- cv.score$opt.lambda2
 result <- rcc(X, Y, ncomp = 3, lambda1 = lambda1, lambda2 = lambda2)
 head(result$cor)
+head(result$loadings$X)
+head(result$loadings$Y)
+save(result, file=file.path(resultsDir, "rccResult.Rdata"))
+
 
 ## ----samplesPlot, out.width='.8\\\\linewidth', warning=FALSE-------------
 ## samples plot
 rownames(X)
+#duplicated(rownames(X))
+#duplicated(colnames(X))
+#duplicated(rownames(Y))
+#duplicated(colnames(Y))
+
+require(mixOmics)
+data("breast.TCGA")
+#dim(breast.TCGA$data.train$mrna)
+
 col.groups <- as.numeric(breast.TCGA$data.train$subtype)
 col.groups
 plotIndiv(result, comp = 1:2, col = col.groups, cex=3)
@@ -196,9 +212,22 @@ dev.off()
 #network(result, comp = 1:3, interactive = FALSE, cutoff=netw.threshold)
 #dev.off()
 
-netw.threshold <- 0.65
 
-net <- network(s, comp = 1:3, interactive = FALSE, cutoff=netw.threshold)
+## PREPARE result in order to avoid having duplicated vertex names in the resulting network
+## That means adding a  'g' or 'p' to each of the feature names in the rcc result object
+colnames(result$X) <- paste0("g.", colnames(result$X))
+colnames(result$X)
+result$names$colnames$X <- colnames(result$X)
+
+colnames(result$Y) <- paste0("p.", colnames(result$Y))
+colnames(result$Y)
+result$names$colnames$Y <- colnames(result$Y)
+
+
+
+netw.threshold <- 0.5
+
+net <- network(result, comp = 1:3, interactive = FALSE, cutoff=netw.threshold)
 dev.off()
 
 ## Save relevance network into a file
@@ -230,6 +259,8 @@ write.csv2(ok, file=file.path(resultsDir,
                                     as.character(netw.threshold),".csv", 
                                     sep="")),
            row.names = TRUE)
+
+
 
 
 ## ----cim-----------------------------------------------------------------
